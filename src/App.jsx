@@ -680,7 +680,7 @@ function GroupCard({group,gi,gInfo,dishes,recipeSites,onChangeDish,onSwap,onDish
   const [variantSheet,setVariantSheet]=useState(null);
   const [changeFilter,setChangeFilter]=useState({cat:null,word:""});
   const [showChangeFilter,setShowChangeFilter]=useState(false);
-  const [showDBEdit,setShowDBEdit]=useState(false);
+  const [dbEditTarget,setDbEditTarget]=useState(null); // {name, slotKey} DBEdit用独立state
 
   const getSlotName=key=>{
     if(key==="lunch_main") return group.lunch?.name||"";
@@ -776,15 +776,15 @@ function GroupCard({group,gi,gInfo,dishes,recipeSites,onChangeDish,onSwap,onDish
           </div>
         )}
         {/* DB編集 */}
-        <button onClick={()=>{ setShowDBEdit(true); setDishAction(null); }} style={{padding:"13px 16px",background:"#FFF8E1",border:"1.5px solid #FFE082",borderRadius:10,textAlign:"left",fontSize:14,fontWeight:600,display:"flex",alignItems:"center",gap:10}}>
+        <button onClick={()=>{ setDbEditTarget({name:dishAction.name}); setDishAction(null); }} style={{padding:"13px 16px",background:"#FFF8E1",border:"1.5px solid #FFE082",borderRadius:10,textAlign:"left",fontSize:14,fontWeight:600,display:"flex",alignItems:"center",gap:10}}>
           📝 レシピDB編集（食材・カテゴリ・バリエーション）
         </button>
       </div>
       <button onClick={()=>{ setDishAction(null); setShowChangeFilter(false); setChangeFilter({cat:null,word:""}); }} style={{width:"100%",padding:10,border:"none",background:"none",color:"#9E9E9E",fontSize:14}}>キャンセル</button>
     </BottomSheet>}
     {/* DB編集シート（献立タブから開いたとき・初期表示は該当料理が選択済み） */}
-    {showDBEdit&&dishAction&&<BottomSheet title={`📝「${dishAction.name}」を編集`} onClose={()=>setShowDBEdit(false)}>
-      <DBMenuEditorInline dishName={dishAction.name} dishes={dishes} onSave={(name,info)=>{ onSaveDish(name,info); setShowDBEdit(false); }} onSaveDishes={onSaveDishes}/>
+    {dbEditTarget&&<BottomSheet title={`📝「${dbEditTarget.name}」を編集`} onClose={()=>setDbEditTarget(null)}>
+      <DBMenuEditorInline dishName={dbEditTarget.name} dishes={dishes} onSave={(name,info)=>{ onSaveDish(name,info); setDbEditTarget(null); }} onSaveDishes={onSaveDishes}/>
     </BottomSheet>}
 
     {variantSheet&&<BottomSheet title={`「${variantSheet.name}」のバリエーション`} onClose={()=>setVariantSheet(null)}>
