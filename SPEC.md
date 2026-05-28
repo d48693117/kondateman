@@ -14,9 +14,14 @@
 ## デプロイ情報
 - アプリ名: `こんだてマン`（定数 `APP_NAME` で管理）
 - localStorageキー: `kondateman-v1`
-- リポジトリ: GitHub / kondateman（新規）
-- APIプロキシ:
-  - `/api/sheets.js` → Google Apps Script（CORSバイパス）
+- リポジトリ: GitHub / kondateman
+- ファイル構成:
+  - `src/App.jsx` / `src/main.jsx` / `src/menuDB.js`
+  - `api/sheets.js`（SheetsプロキシAPI）
+  - `public/manifest.json` / `public/icon-192.png` / `public/icon-512.png`
+  - `index.html` / `package.json` / `vite.config.js`
+  - `GoogleAppsScript.gs`（GASコード）
+  - `SPEC.md` / `DOUBLECHECK.md` / `SKILL_MENU_ADDITION.md`
 - 環境変数: なし（APIキー不要）
 
 ---
@@ -89,13 +94,21 @@
 }
 ```
 
+### データの保管場所と共有方法
+| データの種類 | 保管場所 | 共有方法 |
+|---|---|---|
+| 料理マスタ（menuDB.js） | GitHub | Vercelデプロイで全端末に自動反映 |
+| 評価・lastServed・食材量 | localStorage | スプシ連携が必要 |
+| カスタム追加した料理 | localStorage | スプシ連携が必要 |
+| DB編集（食材・バリエーション） | localStorage | スプシ連携が必要 |
+
 ---
 
 ## データ安全化（sanitizeState）
 全ロード時（localStorage・Sheets）に必ず実行：
 - `dailyGoods` → 文字列以外を除去
-- `dishes` → オブジェクトでなければ {}
-- `ingredientMem` → オブジェクトでなければ {}
+- `dishes` → オブジェクトでなければ `{}`
+- `ingredientMem` → オブジェクトでなければ `{}`
 - `ng_foods` → 文字列以外を除去
 - `sort_cats` / `recipe_sites` → 不正形式はデフォルト値
 - `day_groups` → 配列形式なら辞書形式に変換
@@ -105,32 +118,80 @@
 ## menuDB（src/menuDB.js）
 
 ### フォーマット
+フラット配列（カテゴリブロックなし）。追加は末尾の`];`の直前に1行追加するだけ。
+
 ```js
-{
-  name: "生姜焼き",
-  cats: ["豚肉料理"],          // 最大2つ
-  meal: "dinner",              // "both" | "lunch" | "dinner"
-  diff: 2,                     // 1=かんたん 2=ふつう 3=本格
-  variants: [
-    {
-      variantId: "default",
-      label: "デフォルト",
-      ingredients: [{ name:"豚ロース肉", qty:150, unit:"g" }],
-      seasonings: [{ name:"醤油", qty:1, unit:"大さじ" }]
-    }
-  ]
-}
+export const MENU_DB = [
+  {
+    name: "生姜焼き",
+    cats: ["豚肉料理"],          // 最大2つ（カテゴリはcatsカラムで管理）
+    meal: "dinner",              // "both" | "lunch" | "dinner"
+    diff: 2,                     // 1=かんたん 2=ふつう 3=本格
+    variants: [
+      {
+        variantId: "default",
+        label: "デフォルト",
+        recipeUrl: "",            // バリエーションごとのURL（任意）
+        ingredients: [{ name:"豚ロース肉", qty:150, unit:"g" }],
+        seasonings: [{ name:"醤油", qty:1, unit:"大さじ" }]
+        // qty:0 は適量・少々
+      }
+    ]
+  },
+  // ← 追加はここに1行追記
+];
 ```
 
-### ジャンル一覧（genre_order）
-鶏肉料理 / 豚肉料理 / 牛肉料理 / 魚料理 / 卵・豆腐料理 /
-麺料理 / ご飯物 / 丼もの / カレー・シチュー / おかず / スープ・汁物 / その他
+### unitの選択肢
+`g` / `ml` / `大さじ` / `小さじ` / `個` / `本` / `枚` / `束` / `缶` / `パック` / `かけ` / `片` / `適量` / `少々`
 
-### 現在の件数
-合計 732件（2026-05-27時点）
+### ジャンル一覧と件数（2026-05-27時点: 639件）
+| ジャンル | meal主な値 | 備考 |
+|---|---|---|
+| 鶏肉料理 | dinner | |
+| 豚肉料理 | dinner | |
+| 牛肉料理 | dinner | |
+| 魚料理 | dinner | |
+| 卵・豆腐料理 | both/dinner | |
+| 麺料理 | lunch | |
+| ご飯物 | lunch/both | カレー系もここ |
+| 丼もの | both | |
+| おかず | both | 副菜用 |
+| スープ・汁物 | both | シチュー系もここ |
+| その他 | dinner | お好み焼き等 |
 
-### 重複チェック
-`ALL_MENU_NAMES` エクスポートで全名前取得可能。追加前に必ず確認。
+※カレー・シチューカテゴリは廃止。カレー→ご飯物、シチュー→スープ・汁物に統合。
+
+### エクスポート
+```js
+export const MENU_DB          // フラット配列
+export const ALL_MENU_NAMES   // MENU_DB.map(m => m.name)（重複チェック用）
+export const MENU_CATEGORIES  // [...new Set(MENU_DB.flatMap(m => m.cats))]（動的生成）
+```
+
+---
+
+## menuDB 最小トークン更新手順 ★重要★
+
+menuDB.jsは38万文字超のため、毎回全体を読み込むとトークンを大量消費する。
+追加・修正の際は以下の手順で最小トークンで作業する。
+
+### 料理を追加する場合
+1. `ALL_MENU_NAMES` の末尾付近だけを確認して重複チェック
+2. 追加する料理名・カテゴリ・食材をユーザーから受け取るか、こちらで生成
+3. **ファイル末尾の `];` の直前に1行追記するだけ**（カテゴリブロック不要）
+4. `menuDB.js` 全体は読まない。末尾の `];` 周辺数行だけ `view` で確認
+
+### 件数確認だけする場合
+```python
+import re
+with open('src/menuDB.js') as f: c = f.read()
+for g in ['鶏肉料理','豚肉料理','牛肉料理','魚料理','卵・豆腐料理','麺料理','ご飯物','丼もの','カレー・シチュー','おかず','スープ・汁物','その他']:
+    print(g, len(re.findall(r'"name":', c[c.find(f'"{g}": ['):c.find(f'"{g}": [')+50000])))
+```
+
+### 料理名を変更する場合
+`str_replace` で該当行のみ変更。全体viewは不要。
 
 ---
 
@@ -148,19 +209,17 @@
 - スコア平均 ≥4.0 → 重み3倍
 - スコア平均 ≥3.0 → 重み1.5倍
 - スコアなし or <3.0 → 重み1倍
+- 使いたい食材ワードにマッチ → 重みを追加で3倍
 
 ### 除外条件
 - `lastServed` が rotationWeeks 週以内
 - NG食材を含む料理
 
-### 使いたい食材（フリーワード）
-マッチする料理の重みを3倍に増加
-
 ### 冷凍食品
 `frozen_meals` 設定に基づき昼・夜それぞれ「冷凍食品」に強制上書き
 
 ### 確定タイミング
-Step4「LINEに貼付用コピー」ボタン押下時に `lastServed` を更新
+Step4「LINEに貼付用コピー」ボタン押下時に今週の全料理の `lastServed` を更新
 
 ---
 
@@ -179,7 +238,10 @@ Step4「LINEに貼付用コピー」ボタン押下時に `lastServed` を更新
 - レシピURL登録・表示
 - レシピサイトで検索（Nadia/クックパッド/YouTube/Instagram）
 - バリエーション切り替え（複数ある場合のみ表示）
-- DBからランダムで変更
+- 変更オプション（展開式）:
+  - メイン変更時: カテゴリ絞り込み（全カテゴリから選択可）
+  - 副菜変更時: 使いたい食材フリーワード入力
+- 📝 レシピDB編集（献立タブから該当料理の編集画面を直接開く）
 
 ### タブ移動時の確認
 `pendingUpdate=true` の状態で他タブに移動 → 「買い物リストを更新しますか？」
@@ -215,22 +277,28 @@ Step4「LINEに貼付用コピー」ボタン押下時に `lastServed` を更新
 
 ---
 
-## レシピDB管理（設定タブ内）
+## レシピDB管理
 
-### 検索・編集
+### 設定タブのDBMenuEditor
 1. テキスト入力で部分一致検索 → 候補リスト表示
 2. 選択 → 編集シートが開く
-3. 編集項目: カテゴリ（最大2つ）・提供タイミング・難易度・食材・調味料・バリエーション
+3. 編集項目: カテゴリ（最大2つ）・提供タイミング・難易度・食材・調味料・バリエーション・バリエーションごとのURL
 4. 保存 → `dishes[name]` に上書き（以降の全週に反映）
 
+### 献立タブのDBMenuEditorInline
+- 🔍 → 「📝 レシピDB編集」ボタンで該当料理の編集画面を直接開く（別BottomSheet）
+- 設定タブに戻らず編集可能
+
 ### 新規追加
-- 料理名を入力 → 重複チェック（DB内に同名があればエラー）
-- `isCustom: true` で保存
+- 料理名を入力 → `ALL_MENU_NAMES` で重複チェック（同名があればエラー）
+- `isCustom: true` で `dishes` に保存
 
 ### バリエーション
 - 1料理に複数バリアントを持てる
+- バリエーションごとにレシピURLを登録可能
 - 切り替えは 🔍 → 「バリエーションを切り替える」から
-- 切り替え後は `activeVariant` に保存
+- 切り替え後は `dishes[name].activeVariant` に保存
+- 食材取得は `getEffectiveIngredients()` で activeVariant を参照
 
 ---
 
@@ -258,15 +326,17 @@ Step4「LINEに貼付用コピー」ボタン押下時に `lastServed` を更新
 day_groups: { monday:1, tuesday:2, wednesday:1, thursday:2, friday:1, saturday:3, sunday:4 }
 ```
 - タップでGID+1。G7超えたらG1に戻る
-- deriveGroups()でグループ配列に変換
+- `deriveGroups()` でグループ配列に変換
 
 ---
 
-## GAS設定
+## GAS設定（GoogleAppsScript.gs）
 - 次のユーザーとして実行: **自分**
 - アクセスできるユーザー: **Googleアカウントを持つ全員**
+- アプリ→ `/api/sheets.js` プロキシ経由（CORS回避）
 - 変更から2秒後に自動同期
-- 別端末では「今すぐ読み込み」で取得（GAS URLは各端末で1回手動入力が必要）
+- 別端末では「今すぐ読み込み」で取得
+- **GAS URLは各端末で1回手動入力が必要**（スプシにURLは保存されないため）
 
 ---
 
@@ -278,3 +348,4 @@ day_groups: { monday:1, tuesday:2, wednesday:1, thursday:2, friday:1, saturday:3
 5. `day_groups` は必ず辞書形式
 6. str_replace前に必ずviewで確認
 7. 修正方針を提示してOK後にコーディング
+8. **menuDB.jsの更新は「最小トークン更新手順」に従う（全体読み込み禁止）**
