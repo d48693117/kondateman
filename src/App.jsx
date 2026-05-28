@@ -1255,7 +1255,6 @@ function MealConfigEditor({mealConfig,onChange}){
   </div>);
 }
 
-/* ── IngredientRowEditor: 食材・調味料行編集（外部定義） ── */
 function IngredientRowEditor({items,onUpdate}){
   const [nn,setNn]=useState(""); const [nq,setNq]=useState(""); const [nu,setNu]=useState("g");
   const add=()=>{ if(!nn.trim())return; onUpdate([...items,{name:nn.trim(),qty:parseFloat(nq)||0,unit:nu}]); setNn("");setNq("");setNu("g"); };
