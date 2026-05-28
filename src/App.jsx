@@ -134,13 +134,11 @@ function getEffectiveIngredients(dishName, dishes){
     const v=override.variants?.find(v=>v.variantId===override.activeVariant);
     if(v) return {ingredients:v.ingredients, seasonings:v.seasonings};
   }
-  // Find in menuDB
-  for(const items of Object.values(MENU_DB)){
-    const found=items.find(i=>i.name===dishName);
-    if(found){
-      const variant=found.variants?.find(v=>v.variantId==="default")||found.variants?.[0];
-      if(variant) return {ingredients:variant.ingredients, seasonings:variant.seasonings};
-    }
+  // Find in menuDB (flat array)
+  const found=MENU_DB.find(i=>i.name===dishName);
+  if(found){
+    const variant=found.variants?.find(v=>v.variantId==="default")||found.variants?.[0];
+    if(variant) return {ingredients:variant.ingredients, seasonings:variant.seasonings};
   }
   return {ingredients:[], seasonings:[]};
 }
@@ -170,7 +168,7 @@ function buildMenuFromDB(st, wantedText=""){
   const cutoff=Date.now()-(rotW*7*86400000);
 
   // All DB items flattened
-  const allItems=Object.values(MENU_DB).flat();
+  const allItems=MENU_DB;
 
   function isRecentlyServed(name){
     const d=dishes[name];
@@ -219,7 +217,7 @@ function buildMenuFromDB(st, wantedText=""){
   }
 
   // Main dinner categories (excluding soup/sides)
-  const DINNER_CATS=["鶏肉料理","豚肉料理","牛肉料理","魚料理","卵・豆腐料理","カレー・シチュー","その他"];
+  const DINNER_CATS=["鶏肉料理","豚肉料理","牛肉料理","魚料理","卵・豆腐料理","その他"];
   const LUNCH_CATS=["麺料理","ご飯物","丼もの"];
   const SIDE_CATS=["おかず"];
   const SOUP_CATS=["スープ・汁物"];
@@ -541,13 +539,13 @@ function MenuScreen({st,save,notify,onTabChange}){
     const g=plan.groups[gi];
     const isLunch=slotKey==="lunch_main";
     const isSide=slotKey.startsWith("dinner_side");
-    let defaultCats=isLunch?["麺料理","ご飯物","丼もの"]:isSide?["おかず"]:["鶏肉料理","豚肉料理","牛肉料理","魚料理","卵・豆腐料理","カレー・シチュー","その他"];
+    let defaultCats=isLunch?["麺料理","ご飯物","丼もの"]:isSide?["おかず"]:["鶏肉料理","豚肉料理","牛肉料理","魚料理","卵・豆腐料理","その他"];
     const cats=filterCat?[filterCat]:defaultCats;
     const mealType=isLunch?"lunch":"dinner";
     const used=plan.groups.flatMap(g=>[g.lunch?.name,g.dinner?.name,...(g.dinner?.sides||[])].filter(Boolean));
     const words=filterWord.trim().split(/[\s,、]+/).filter(Boolean);
 
-    const allItems=Object.values(MENU_DB).flat();
+    const allItems=MENU_DB;
     let candidates=allItems.filter(item=>{
       if(item.name===oldName||used.includes(item.name)) return false;
       if(!item.cats.some(c=>cats.includes(c))) return false;
@@ -704,7 +702,7 @@ function GroupCard({group,gi,gInfo,dishes,recipeSites,onChangeDish,onSwap,onDish
     const avgScore=dishInfo?.scores?.length?avg(dishInfo.scores).toFixed(1):null;
     const diff=dishInfo?.difficulty||0;
     const activeVariant=dishInfo?.activeVariant||"default";
-    const dbItem=name?Object.values(MENU_DB).flat().find(i=>i.name===name):null;
+    const dbItem=name?MENU_DB.find(i=>i.name===name):null;
     const variantLabel=dbItem?.variants?.find(v=>v.variantId===activeVariant)?.label||"デフォルト";
     const hasMultiVariants=dbItem?.variants?.length>1;
 
@@ -743,7 +741,7 @@ function GroupCard({group,gi,gInfo,dishes,recipeSites,onChangeDish,onSwap,onDish
             <button onClick={()=>{ if(!urlInput.trim()) return; const prev=dishes?.[dishAction.name]||{scores:[],difficulty:0,lastServed:null}; onSaveDish(dishAction.name,{...prev,recipeUrl:urlInput.trim()}); setDishAction(null); }} style={{padding:"8px 12px",background:"#1565C0",color:"white",border:"none",borderRadius:7,fontSize:13,fontWeight:700}}>保存</button>
           </div>
         </div>
-        {(() => { const dbItem=Object.values(MENU_DB).flat().find(i=>i.name===dishAction.name); return dbItem?.variants?.length>1?(
+        {(() => { const dbItem=MENU_DB.find(i=>i.name===dishAction.name); return dbItem?.variants?.length>1?(
           <button onClick={()=>{ setVariantSheet({name:dishAction.name,dbItem}); setDishAction(null); }} style={{padding:"13px 16px",background:"#F3E5F5",border:"1.5px solid #CE93D8",borderRadius:10,textAlign:"left",fontSize:14,fontWeight:600,display:"flex",alignItems:"center",gap:10}}>
             🔀 バリエーションを切り替える
           </button>
@@ -761,7 +759,7 @@ function GroupCard({group,gi,gInfo,dishes,recipeSites,onChangeDish,onSwap,onDish
               <div style={{fontSize:11,color:"#9E9E9E",marginBottom:5}}>カテゴリで絞り込む（任意）</div>
               <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:8}}>
                 <button onClick={()=>setChangeFilter(f=>({...f,cat:null}))} style={{padding:"4px 10px",borderRadius:12,border:`1.5px solid ${!changeFilter.cat?"#2E7D32":"#E0E0E0"}`,background:!changeFilter.cat?"#E8F5E9":"white",color:!changeFilter.cat?"#2E7D32":"#757575",fontSize:12}}>すべて</button>
-                {(dishAction.slotKey==="dinner_main"?["鶏肉料理","豚肉料理","牛肉料理","魚料理","卵・豆腐料理","カレー・シチュー","その他"]:["麺料理","ご飯物","丼もの"]).map(cat=>(
+                {(dishAction.slotKey==="dinner_main"?["鶏肉料理","豚肉料理","牛肉料理","魚料理","卵・豆腐料理","その他"]:["麺料理","ご飯物","丼もの"]).map(cat=>(
                   <button key={cat} onClick={()=>setChangeFilter(f=>({...f,cat:f.cat===cat?null:cat}))} style={{padding:"4px 10px",borderRadius:12,border:`1.5px solid ${changeFilter.cat===cat?"#1565C0":"#E0E0E0"}`,background:changeFilter.cat===cat?"#E3F2FD":"white",color:changeFilter.cat===cat?"#1565C0":"#757575",fontSize:12}}>{cat}</button>
                 ))}
               </div>
@@ -1259,7 +1257,7 @@ function MealConfigEditor({mealConfig,onChange}){
 
 /* ── DBMenuEditorInline: 単一料理の編集（献立タブから開く用） ── */
 function DBMenuEditorInline({dishName,dishes,onSave,onSaveDishes}){
-  const dbItem=Object.values(MENU_DB).flat().find(i=>i.name===dishName);
+  const dbItem=MENU_DB.find(i=>i.name===dishName);
   const override=dishes?.[dishName];
   const initVariants=override?.variants||dbItem?.variants||[{variantId:"default",label:"デフォルト",ingredients:[],seasonings:[]}];
   const [editData,setEditData]=useState({
@@ -1345,7 +1343,7 @@ function DBMenuEditor({dishes,save,notify}){
   const [showAdd,setShowAdd]=useState(false);
   const [newEntry,setNewEntry]=useState({name:"",cats:["鶏肉料理"],meal:"dinner",diff:2,variants:[{variantId:"default",label:"デフォルト",ingredients:[],seasonings:[]}]});
 
-  const allDbItems=Object.values(MENU_DB).flat();
+  const allDbItems=MENU_DB;
   const results=query.length>0?allDbItems.filter(i=>i.name.includes(query)).slice(0,10):[];
 
   const openEdit=item=>{
