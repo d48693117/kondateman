@@ -1255,6 +1255,26 @@ function MealConfigEditor({mealConfig,onChange}){
   </div>);
 }
 
+/* ── IngredientRowEditor: 食材・調味料行編集（外部定義） ── */
+function IngredientRowEditor({items,onUpdate}){
+  const [nn,setNn]=useState(""); const [nq,setNq]=useState(""); const [nu,setNu]=useState("g");
+  const add=()=>{ if(!nn.trim())return; onUpdate([...items,{name:nn.trim(),qty:parseFloat(nq)||0,unit:nu}]); setNn("");setNq("");setNu("g"); };
+  return(<div>
+    {(items||[]).map((ing,ii)=>(<div key={ii} style={{display:"flex",gap:4,marginBottom:4,alignItems:"center"}}>
+      <input value={ing.name} onChange={e=>onUpdate(items.map((x,xi)=>xi===ii?{...x,name:e.target.value}:x))} style={{flex:2,padding:"6px 8px",border:"1px solid #E0E0E0",borderRadius:6,fontSize:12}}/>
+      <input value={ing.qty||""} onChange={e=>onUpdate(items.map((x,xi)=>xi===ii?{...x,qty:parseFloat(e.target.value)||0}:x))} style={{width:44,padding:"6px 4px",border:"1px solid #E0E0E0",borderRadius:6,fontSize:12,textAlign:"center"}} placeholder="量"/>
+      <input value={ing.unit} onChange={e=>onUpdate(items.map((x,xi)=>xi===ii?{...x,unit:e.target.value}:x))} style={{width:48,padding:"6px 4px",border:"1px solid #E0E0E0",borderRadius:6,fontSize:12}}/>
+      <button onClick={()=>onUpdate(items.filter((_,xi)=>xi!==ii))} style={{padding:"4px 6px",background:"#FFEBEE",color:"#C62828",border:"none",borderRadius:5,fontSize:11}}>×</button>
+    </div>))}
+    <div style={{display:"flex",gap:4,marginTop:4}}>
+      <input value={nn} onChange={e=>setNn(e.target.value)} placeholder="名前" style={{flex:2,padding:"6px 8px",border:"1px solid #E0E0E0",borderRadius:6,fontSize:12}}/>
+      <input value={nq} onChange={e=>setNq(e.target.value)} placeholder="量" style={{width:44,padding:"6px 4px",border:"1px solid #E0E0E0",borderRadius:6,fontSize:12,textAlign:"center"}}/>
+      <input value={nu} onChange={e=>setNu(e.target.value)} style={{width:48,padding:"6px 4px",border:"1px solid #E0E0E0",borderRadius:6,fontSize:12}}/>
+      <button onClick={add} style={{padding:"4px 8px",background:"#1565C0",color:"white",border:"none",borderRadius:5,fontSize:12,fontWeight:700}}>追加</button>
+    </div>
+  </div>);
+}
+
 /* ── DBMenuEditorInline: 単一料理の編集（献立タブから開く用） ── */
 function DBMenuEditorInline({dishName,dishes,onSave,onSaveDishes}){
   const dbItem=MENU_DB.find(i=>i.name===dishName);
@@ -1272,24 +1292,6 @@ function DBMenuEditorInline({dishName,dishes,onSave,onSaveDishes}){
     onSave(dishName,{...prev,cats:editData.cats,meal:editData.meal,difficulty:editData.diff,variants:editData.variants});
   };
 
-  const IngEdit=({items,onUpdate})=>{
-    const [nn,setNn]=useState(""); const [nq,setNq]=useState(""); const [nu,setNu]=useState("g");
-    const add=()=>{ if(!nn.trim())return; onUpdate([...items,{name:nn.trim(),qty:parseFloat(nq)||0,unit:nu}]); setNn("");setNq("");setNu("g"); };
-    return(<div>
-      {items.map((ing,ii)=>(<div key={ii} style={{display:"flex",gap:4,marginBottom:4,alignItems:"center"}}>
-        <input value={ing.name} onChange={e=>onUpdate(items.map((x,xi)=>xi===ii?{...x,name:e.target.value}:x))} style={{flex:2,padding:"6px 8px",border:"1px solid #E0E0E0",borderRadius:6,fontSize:12}}/>
-        <input value={ing.qty||""} onChange={e=>onUpdate(items.map((x,xi)=>xi===ii?{...x,qty:parseFloat(e.target.value)||0}:x))} style={{width:44,padding:"6px 4px",border:"1px solid #E0E0E0",borderRadius:6,fontSize:12,textAlign:"center"}} placeholder="量"/>
-        <input value={ing.unit} onChange={e=>onUpdate(items.map((x,xi)=>xi===ii?{...x,unit:e.target.value}:x))} style={{width:48,padding:"6px 4px",border:"1px solid #E0E0E0",borderRadius:6,fontSize:12}}/>
-        <button onClick={()=>onUpdate(items.filter((_,xi)=>xi!==ii))} style={{padding:"4px 6px",background:"#FFEBEE",color:"#C62828",border:"none",borderRadius:5,fontSize:11}}>×</button>
-      </div>))}
-      <div style={{display:"flex",gap:4,marginTop:4}}>
-        <input value={nn} onChange={e=>setNn(e.target.value)} placeholder="名前" style={{flex:2,padding:"6px 8px",border:"1px solid #E0E0E0",borderRadius:6,fontSize:12}}/>
-        <input value={nq} onChange={e=>setNq(e.target.value)} placeholder="量" style={{width:44,padding:"6px 4px",border:"1px solid #E0E0E0",borderRadius:6,fontSize:12,textAlign:"center"}}/>
-        <input value={nu} onChange={e=>setNu(e.target.value)} style={{width:48,padding:"6px 4px",border:"1px solid #E0E0E0",borderRadius:6,fontSize:12}}/>
-        <button onClick={add} style={{padding:"4px 8px",background:"#1565C0",color:"white",border:"none",borderRadius:5,fontSize:12,fontWeight:700}}>追加</button>
-      </div>
-    </div>);
-  };
 
   return(<div style={{maxHeight:"65vh",overflowY:"auto"}}>
     <Lbl>カテゴリ（最大2つ）</Lbl>
@@ -1325,14 +1327,50 @@ function DBMenuEditorInline({dishName,dishes,onSave,onSaveDishes}){
           </div>
         </div>
         <Lbl>食材</Lbl>
-        <IngEdit items={v.ingredients||[]} onUpdate={ings=>{ const vs=[...editData.variants]; vs[vi]={...vs[vi],ingredients:ings}; setEditData(d=>({...d,variants:vs})); }}/>
+        <IngredientRowEditor items={v.ingredients||[]} onUpdate={ings=>{ const vs=[...editData.variants]; vs[vi]={...vs[vi],ingredients:ings}; setEditData(d=>({...d,variants:vs})); }}/>
         <div style={{marginTop:8}}><Lbl>調味料</Lbl></div>
-        <IngEdit items={v.seasonings||[]} onUpdate={seas=>{ const vs=[...editData.variants]; vs[vi]={...vs[vi],seasonings:seas}; setEditData(d=>({...d,variants:vs})); }}/>
+        <IngredientRowEditor items={v.seasonings||[]} onUpdate={seas=>{ const vs=[...editData.variants]; vs[vi]={...vs[vi],seasonings:seas}; setEditData(d=>({...d,variants:vs})); }}/>
       </div>
     ))}
     <button onClick={()=>setEditData(d=>({...d,variants:[...d.variants,{variantId:`v${d.variants.length+1}`,label:`バリエーション${d.variants.length+1}`,ingredients:[],seasonings:[],recipeUrl:""}]}))} style={{width:"100%",padding:"9px",background:"#F7F8FA",border:"2px dashed #E0E0E0",borderRadius:8,color:"#9E9E9E",fontSize:13,marginBottom:12}}>＋ バリエーションを追加</button>
     <button onClick={save} style={{display:"block",width:"100%",padding:"13px",background:"#2E7D32",color:"white",border:"none",borderRadius:10,fontSize:14,fontWeight:700}}>保存</button>
   </div>);
+}
+
+function EntryForm({data,onChange}){
+  return(
+    <div>
+      <Lbl>カテゴリ（最大2つ）</Lbl>
+      <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:10}}>
+        {MENU_CATEGORIES.map(cat=>{ const sel=data.cats.includes(cat); return(
+          <button key={cat} onClick={()=>{ if(sel) onChange({...data,cats:data.cats.filter(c=>c!==cat)}); else if(data.cats.length<2) onChange({...data,cats:[...data.cats,cat]}); }} style={{padding:"5px 10px",borderRadius:14,border:`1.5px solid ${sel?"#2E7D32":"#E0E0E0"}`,background:sel?"#E8F5E9":"white",color:sel?"#2E7D32":"#757575",fontSize:12,fontWeight:500}}>{cat}</button>
+        );})}
+      </div>
+      <Lbl>提供タイミング</Lbl>
+      <div style={{display:"flex",gap:8,marginBottom:10}}>
+        {[["both","昼・夜"],["lunch","昼のみ"],["dinner","夜のみ"]].map(([v,l])=>(
+          <button key={v} onClick={()=>onChange({...data,meal:v})} style={{flex:1,padding:"8px",border:`1.5px solid ${data.meal===v?"#2E7D32":"#E0E0E0"}`,borderRadius:8,background:data.meal===v?"#E8F5E9":"white",color:data.meal===v?"#2E7D32":"#757575",fontSize:13,fontWeight:data.meal===v?700:400}}>{l}</button>
+        ))}
+      </div>
+      <Lbl>難易度</Lbl>
+      <div style={{display:"flex",gap:8,marginBottom:14}}>
+        {[1,2,3].map(d=>(<button key={d} onClick={()=>onChange({...data,diff:d})} style={{flex:1,padding:"8px",border:`1.5px solid ${data.diff===d?DIFF_COLORS[d]:"#E0E0E0"}`,borderRadius:8,background:data.diff===d?DIFF_COLORS[d]+"22":"white",color:data.diff===d?DIFF_COLORS[d]:"#9E9E9E",fontSize:13,fontWeight:600}}>{DIFF_LABELS[d]}</button>))}
+      </div>
+      {data.variants.map((v,vi)=>(
+        <div key={v.variantId} style={{background:"#F7F8FA",borderRadius:10,padding:"12px",marginBottom:8}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+            <input value={v.label} onChange={e=>{ const vs=[...data.variants]; vs[vi]={...vs[vi],label:e.target.value}; onChange({...data,variants:vs}); }} style={{flex:1,padding:"6px 10px",border:"1.5px solid #E0E0E0",borderRadius:7,fontSize:14,fontWeight:600}}/>
+            {data.variants.length>1&&<button onClick={()=>onChange({...data,variants:data.variants.filter((_,i)=>i!==vi)})} style={{marginLeft:8,padding:"4px 8px",background:"#FFEBEE",color:"#C62828",border:"none",borderRadius:6,fontSize:12}}>削除</button>}
+          </div>
+          <Lbl>食材</Lbl>
+          <IngredientRowEditor items={v.ingredients||[]} onUpdate={ings=>{ const vs=[...data.variants]; vs[vi]={...vs[vi],ingredients:ings}; onChange({...data,variants:vs}); }} type="ingredient"/>
+          <Lbl style={{marginTop:8}}>調味料</Lbl>
+          <IngredientRowEditor items={v.seasonings||[]} onUpdate={seas=>{ const vs=[...data.variants]; vs[vi]={...vs[vi],seasonings:seas}; onChange({...data,variants:vs}); }} type="seasoning"/>
+        </div>
+      ))}
+      <button onClick={()=>onChange({...data,variants:[...data.variants,{variantId:`v${data.variants.length+1}`,label:`バリエーション${data.variants.length+1}`,ingredients:[],seasonings:[]}]})} style={{width:"100%",padding:"9px",background:"#F7F8FA",border:"2px dashed #E0E0E0",borderRadius:8,color:"#9E9E9E",fontSize:13,marginTop:4}}>＋ バリエーションを追加</button>
+    </div>
+  );
 }
 
 /* ── DBMenu Editor ── */
@@ -1375,58 +1413,7 @@ function DBMenuEditor({dishes,save,notify}){
     notify("✅ 追加しました");
   };
 
-  const IngredientEditor=({items,onUpdate,type})=>{
-    const [newName,setNewName]=useState(""); const [newQty,setNewQty]=useState(""); const [newUnit,setNewUnit]=useState("g");
-    const add=()=>{ if(!newName.trim())return; onUpdate([...items,{name:newName.trim(),qty:parseFloat(newQty)||0,unit:newUnit}]); setNewName("");setNewQty("");setNewUnit("g"); };
-    return(<div>
-      {items.map((ing,ii)=>(<div key={ii} style={{display:"flex",gap:4,marginBottom:4,alignItems:"center"}}>
-        <input value={ing.name} onChange={e=>onUpdate(items.map((x,xi)=>xi===ii?{...x,name:e.target.value}:x))} style={{flex:2,padding:"6px 8px",border:"1px solid #E0E0E0",borderRadius:6,fontSize:13}}/>
-        <input value={ing.qty||""} onChange={e=>onUpdate(items.map((x,xi)=>xi===ii?{...x,qty:parseFloat(e.target.value)||0}:x))} style={{width:50,padding:"6px 4px",border:"1px solid #E0E0E0",borderRadius:6,fontSize:13,textAlign:"center"}} placeholder="量"/>
-        <input value={ing.unit} onChange={e=>onUpdate(items.map((x,xi)=>xi===ii?{...x,unit:e.target.value}:x))} style={{width:50,padding:"6px 4px",border:"1px solid #E0E0E0",borderRadius:6,fontSize:13}}/>
-        <button onClick={()=>onUpdate(items.filter((_,xi)=>xi!==ii))} style={{padding:"4px 8px",background:"#FFEBEE",color:"#C62828",border:"none",borderRadius:5,fontSize:12}}>×</button>
-      </div>))}
-      <div style={{display:"flex",gap:4,marginTop:6}}>
-        <input value={newName} onChange={e=>setNewName(e.target.value)} placeholder="名前" style={{flex:2,padding:"6px 8px",border:"1px solid #E0E0E0",borderRadius:6,fontSize:13}}/>
-        <input value={newQty} onChange={e=>setNewQty(e.target.value)} placeholder="量" style={{width:50,padding:"6px 4px",border:"1px solid #E0E0E0",borderRadius:6,fontSize:13,textAlign:"center"}}/>
-        <input value={newUnit} onChange={e=>setNewUnit(e.target.value)} style={{width:50,padding:"6px 4px",border:"1px solid #E0E0E0",borderRadius:6,fontSize:13}}/>
-        <button onClick={add} style={{padding:"4px 10px",background:"#1565C0",color:"white",border:"none",borderRadius:5,fontSize:12,fontWeight:700}}>追加</button>
-      </div>
-    </div>);
-  };
 
-  const EntryForm=({data,onChange})=>(
-    <div>
-      <Lbl>カテゴリ（最大2つ）</Lbl>
-      <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:10}}>
-        {MENU_CATEGORIES.map(cat=>{ const sel=data.cats.includes(cat); return(
-          <button key={cat} onClick={()=>{ if(sel) onChange({...data,cats:data.cats.filter(c=>c!==cat)}); else if(data.cats.length<2) onChange({...data,cats:[...data.cats,cat]}); }} style={{padding:"5px 10px",borderRadius:14,border:`1.5px solid ${sel?"#2E7D32":"#E0E0E0"}`,background:sel?"#E8F5E9":"white",color:sel?"#2E7D32":"#757575",fontSize:12,fontWeight:500}}>{cat}</button>
-        );})}
-      </div>
-      <Lbl>提供タイミング</Lbl>
-      <div style={{display:"flex",gap:8,marginBottom:10}}>
-        {[["both","昼・夜"],["lunch","昼のみ"],["dinner","夜のみ"]].map(([v,l])=>(
-          <button key={v} onClick={()=>onChange({...data,meal:v})} style={{flex:1,padding:"8px",border:`1.5px solid ${data.meal===v?"#2E7D32":"#E0E0E0"}`,borderRadius:8,background:data.meal===v?"#E8F5E9":"white",color:data.meal===v?"#2E7D32":"#757575",fontSize:13,fontWeight:data.meal===v?700:400}}>{l}</button>
-        ))}
-      </div>
-      <Lbl>難易度</Lbl>
-      <div style={{display:"flex",gap:8,marginBottom:14}}>
-        {[1,2,3].map(d=>(<button key={d} onClick={()=>onChange({...data,diff:d})} style={{flex:1,padding:"8px",border:`1.5px solid ${data.diff===d?DIFF_COLORS[d]:"#E0E0E0"}`,borderRadius:8,background:data.diff===d?DIFF_COLORS[d]+"22":"white",color:data.diff===d?DIFF_COLORS[d]:"#9E9E9E",fontSize:13,fontWeight:600}}>{DIFF_LABELS[d]}</button>))}
-      </div>
-      {data.variants.map((v,vi)=>(
-        <div key={v.variantId} style={{background:"#F7F8FA",borderRadius:10,padding:"12px",marginBottom:8}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-            <input value={v.label} onChange={e=>{ const vs=[...data.variants]; vs[vi]={...vs[vi],label:e.target.value}; onChange({...data,variants:vs}); }} style={{flex:1,padding:"6px 10px",border:"1.5px solid #E0E0E0",borderRadius:7,fontSize:14,fontWeight:600}}/>
-            {data.variants.length>1&&<button onClick={()=>onChange({...data,variants:data.variants.filter((_,i)=>i!==vi)})} style={{marginLeft:8,padding:"4px 8px",background:"#FFEBEE",color:"#C62828",border:"none",borderRadius:6,fontSize:12}}>削除</button>}
-          </div>
-          <Lbl>食材</Lbl>
-          <IngredientEditor items={v.ingredients||[]} onUpdate={ings=>{ const vs=[...data.variants]; vs[vi]={...vs[vi],ingredients:ings}; onChange({...data,variants:vs}); }} type="ingredient"/>
-          <Lbl style={{marginTop:8}}>調味料</Lbl>
-          <IngredientEditor items={v.seasonings||[]} onUpdate={seas=>{ const vs=[...data.variants]; vs[vi]={...vs[vi],seasonings:seas}; onChange({...data,variants:vs}); }} type="seasoning"/>
-        </div>
-      ))}
-      <button onClick={()=>onChange({...data,variants:[...data.variants,{variantId:`v${data.variants.length+1}`,label:`バリエーション${data.variants.length+1}`,ingredients:[],seasonings:[]}]})} style={{width:"100%",padding:"9px",background:"#F7F8FA",border:"2px dashed #E0E0E0",borderRadius:8,color:"#9E9E9E",fontSize:13,marginTop:4}}>＋ バリエーションを追加</button>
-    </div>
-  );
 
   return(<div>
     {editTarget&&<BottomSheet title={`「${editTarget}」を編集`} onClose={()=>setEditTarget(null)}>
